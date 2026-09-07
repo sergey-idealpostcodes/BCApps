@@ -1328,16 +1328,15 @@ codeunit 134619 "Composite Layout Tests"
         // [WHEN] Simulating OnCompanyOpen (same logic as the event handler).
         SimulateCompanyOpenSeeding();
 
-        // Restore full permissions before reading back and cleaning up.
+        // Restore full permissions, and take the tag back out, before asserting. Both are per-database state this
+        // test just changed, and an assertion failure below must not be what decides whether they get cleaned up.
         PermissionsMock.Stop();
+        ClearCompositeReportPartsUpgradeTag();
 
         // [THEN] The missing part is seeded despite the caller having no direct Tenant Report Layout permissions.
         Assert.IsTrue(
             ShippedPartExists('Internal Default', Enum::"Report Layout Subtype"::HeaderFooter),
             'OnCompanyOpen should seed the missing shipped part even under minimal permissions.');
-
-        // Cleared again so the suite does not hand the tag on to whatever runs next in this database.
-        ClearCompositeReportPartsUpgradeTag();
     end;
 
     /// <summary>
