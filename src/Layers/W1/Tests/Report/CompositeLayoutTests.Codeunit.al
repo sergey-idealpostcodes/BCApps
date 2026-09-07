@@ -619,6 +619,30 @@ codeunit 134619 "Composite Layout Tests"
 
     [Test]
     [Scope('OnPrem')]
+    procedure SeedPartOrLogFailureDoesNotRaiseWhenTheResourceIsMissing()
+    var
+        CompositeReportPartsMgt: Codeunit "Composite Report Parts Mgt.";
+        PartName: Text[250];
+    begin
+        // [SCENARIO] SeedDefaultParts seeds every part through SeedPartOrLogFailure, not SeedPart directly, so that
+        // one part with a build-defect resource does not fail the whole pass - and the per-database upgrade tag it
+        // runs under - for every other part and every other tenant sharing that upgrade phase.
+        Initialize();
+
+        // [GIVEN] The part is not in the pool, so the count below cannot pass on a row from an earlier run.
+        PartName := CopyStr(UnseedablePartTok, 1, MaxStrLen(PartName));
+        RemoveShippedPart(PartName);
+
+        // [WHEN] Seeding a part whose layout file is not a resource of the app, through the failure-absorbing entry
+        // point. Reaching the assertions below already proves it did not raise.
+        CompositeReportPartsMgt.SeedPartOrLogFailure(PartName, MissingResourceTok, Enum::"Report Layout Subtype"::HeaderFooter, UnseedablePartDescTok);
+
+        // [THEN] Nothing was written for the failed part - it is logged, not silently faked as seeded.
+        Assert.AreEqual(0, ShippedPartCount(PartName), 'A part that could not be read should leave no row in the pool.');
+    end;
+
+    [Test]
+    [Scope('OnPrem')]
     procedure CompositeLayoutKeyUsesTheOwningApplicationId()
     var
         TenantLayout: Record "Report Layout List";
