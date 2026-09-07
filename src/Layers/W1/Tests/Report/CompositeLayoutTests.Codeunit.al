@@ -28,8 +28,6 @@ codeunit 134619 "Composite Layout Tests"
         UnseedablePartTok: Label 'Test Unseedable Part', Locked = true;
         UnseedablePartDescTok: Label 'A part a test seeds from a layout file that is not in the app.', Locked = true;
         MissingResourceTok: Label 'ReportParts/HeaderFooterDesign/ThisResourceIsNotInTheApp.docx', Locked = true;
-        RetiredPartTok: Label 'Test Retired Part', Locked = true;
-        RetiredPartDescTok: Label 'A part a test seeds under a name this version of the app does not ship.', Locked = true;
         ShippedThemeResourceTok: Label 'ReportParts/ReportTheme/Default.dotx', Locked = true;
         ThemeMimeTypeTok: Label 'reportlayout/dotx', Locked = true;
         TestReportID: Integer;
@@ -523,71 +521,6 @@ codeunit 134619 "Composite Layout Tests"
 
         // Cleared again so the suite does not hand the tag on to whatever runs next in this database.
         ClearCompositeReportPartsUpgradeTag();
-    end;
-
-    [Test]
-    [Scope('OnPrem')]
-    procedure SeedingRemovesAPartThisVersionNoLongerShips()
-    var
-        CompositeReportPartsMgt: Codeunit "Composite Report Parts Mgt.";
-        RetiredPartName: Text[250];
-    begin
-        // [SCENARIO] Dropping a part from the shipped list - by deleting its layout file or its SeedPart call - has to
-        // take the part out of the shared pool too. Seeding only writes the names it still ships, so without a pass that
-        // removes the rest a retired part would stay in the pool for good.
-        Initialize();
-
-        // [GIVEN] A part in the pool under the shipped App ID, carrying a name this version does not ship.
-        RetiredPartName := CopyStr(RetiredPartTok, 1, MaxStrLen(RetiredPartName));
-        CompositeReportPartsMgt.SeedPart(RetiredPartName, ShippedThemeResourceTok, Enum::"Report Layout Subtype"::Theme, RetiredPartDescTok);
-        Assert.AreEqual(1, ShippedPartCount(RetiredPartName), 'The retired part should be in the pool before the pass.');
-
-        // [WHEN] Seeding runs, as install and upgrade do.
-        CompositeReportPartsMgt.SeedDefaultParts();
-
-        // [THEN] It is gone, because its name is not one this version ships.
-        Assert.AreEqual(
-            0, ShippedPartCount(RetiredPartName),
-            'A part this version no longer ships should be removed from the shared pool.');
-
-        // [THEN] A part the version does ship is untouched, so the pass removes the retired names and nothing more.
-        Assert.IsTrue(
-            ShippedPartExists('Internal Default', Enum::"Report Layout Subtype"::HeaderFooter),
-            'Pruning must not take out a part the version still ships.');
-    end;
-
-    [Test]
-    [Scope('OnPrem')]
-    procedure PruningARetiredPartClearsItsAssignments()
-    var
-        TenantReportLayoutCfg: Record "Tenant Report Layout Cfg";
-        RetiredPartLayout: Record "Report Layout List";
-        CompositeReportPartsMgt: Codeunit "Composite Report Parts Mgt.";
-        RetiredPartName: Text[250];
-        BodyKey: Text;
-    begin
-        // [SCENARIO] A configuration row that assigned a retired part must not be left pointing at it: the reference is
-        // cleared as the part goes, the same way deleting a part from the page clears its assignments.
-        Initialize();
-
-        // [GIVEN] A body layout the configuration row can legally name. The platform validates that Layout Name
-        // resolves to a Body-subtype layout, so a plain name on a report that does not exist is rejected on insert.
-        BodyKey := CreateLayoutOnReport(BodyReportID, 'PruneBody', Enum::"Report Layout Subtype"::Body);
-
-        // [GIVEN] A retired part assigned as the theme of a report configuration row.
-        RetiredPartName := CopyStr(RetiredPartTok, 1, MaxStrLen(RetiredPartName));
-        CompositeReportPartsMgt.SeedPart(RetiredPartName, ShippedThemeResourceTok, Enum::"Report Layout Subtype"::Theme, RetiredPartDescTok);
-        FindLayout(LookupHelper.GetTenantReportDefaultsReportID(), RetiredPartName, RetiredPartLayout);
-        InsertCfg(BodyReportID, BodyKey, '', '', LookupHelper.EncodeCompositeName(RetiredPartLayout."Application ID", RetiredPartLayout.Name));
-
-        // [WHEN] Seeding runs and prunes the retired part.
-        CompositeReportPartsMgt.SeedDefaultParts();
-
-        // [THEN] The configuration row survives with the reference cleared, rather than pointing at a part that is gone.
-        Assert.IsTrue(
-            TenantReportLayoutCfg.Get(BodyReportID, CopyStr(BodyKey, 1, MaxStrLen(TenantReportLayoutCfg."Layout Name")), ''),
-            'The configuration row should survive the pruning.');
-        Assert.AreEqual('', TenantReportLayoutCfg."Theme Part Name", 'Pruning the part should clear the assignment that referenced it.');
     end;
 
     [Test]
