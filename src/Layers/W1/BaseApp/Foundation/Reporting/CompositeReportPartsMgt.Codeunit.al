@@ -11,7 +11,8 @@ using System.Utilities;
 /// <summary>
 /// Seeds the shipped Composite Layout theme and header/footer parts under Tenant Report Defaults on install and
 /// upgrade, stored under this app's own App ID. Every part is a resource of this app, so one that cannot be read
-/// or written is a build defect and is raised rather than skipped.
+/// or written is a build defect - SeedPart raises for it, but SeedDefaultParts logs it and keeps seeding the rest
+/// rather than failing the whole pass on one bad part.
 /// </summary>
 codeunit 9667 "Composite Report Parts Mgt."
 {
@@ -28,26 +29,56 @@ codeunit 9667 "Composite Report Parts Mgt."
     // If a part is retired, add a dedicated upgrade step with its own new upgrade tag that flips that row's
     // Layout Status to Retired and clears its assignments - Retired is a real lifecycle status the platform
     // already supports on this field, so there is no need to delete the row.
+    //
+    // Each part is seeded through SeedPartOrLogFailure, not SeedPart directly: this runs from the per-database
+    // upgrade trigger and from company open for every user, so one part with a bad resource must not fail the
+    // whole upgrade tag (and whatever else shares its upgrade phase) or block company open for every other
+    // tenant. A failure is logged to telemetry instead, and the remaining parts still get seeded.
     internal procedure SeedDefaultParts()
     begin
-        SeedPart(ExternalDefaultTxt, 'ReportParts/HeaderFooterDesign/ExternalDefault.docx', Enum::"Report Layout Subtype"::HeaderFooter, ExternalDefaultDescTxt);
-        SeedPart(ExternalDefaultDetailedTxt, 'ReportParts/HeaderFooterDesign/ExternalDefaultDetailed.docx', Enum::"Report Layout Subtype"::HeaderFooter, ExternalDefaultDetailedDescTxt);
-        SeedPart(ExternalMinimalisticTxt, 'ReportParts/HeaderFooterDesign/ExternalMinimalistic.docx', Enum::"Report Layout Subtype"::HeaderFooter, ExternalMinimalisticDescTxt);
-        SeedPart(ExternalMinimalisticDetailedTxt, 'ReportParts/HeaderFooterDesign/ExternalMinimalisticDetailed.docx', Enum::"Report Layout Subtype"::HeaderFooter, ExternalMinimalisticDetailedDescTxt);
-        SeedPart(ExternalModernTxt, 'ReportParts/HeaderFooterDesign/ExternalModern.docx', Enum::"Report Layout Subtype"::HeaderFooter, ExternalModernDescTxt);
-        SeedPart(ExternalModernLogoTxt, 'ReportParts/HeaderFooterDesign/ExternalModernLogo.docx', Enum::"Report Layout Subtype"::HeaderFooter, ExternalModernLogoDescTxt);
+        SeedPartOrLogFailure(ExternalDefaultTxt, 'ReportParts/HeaderFooterDesign/ExternalDefault.docx', Enum::"Report Layout Subtype"::HeaderFooter, ExternalDefaultDescTxt);
+        SeedPartOrLogFailure(ExternalDefaultDetailedTxt, 'ReportParts/HeaderFooterDesign/ExternalDefaultDetailed.docx', Enum::"Report Layout Subtype"::HeaderFooter, ExternalDefaultDetailedDescTxt);
+        SeedPartOrLogFailure(ExternalMinimalisticTxt, 'ReportParts/HeaderFooterDesign/ExternalMinimalistic.docx', Enum::"Report Layout Subtype"::HeaderFooter, ExternalMinimalisticDescTxt);
+        SeedPartOrLogFailure(ExternalMinimalisticDetailedTxt, 'ReportParts/HeaderFooterDesign/ExternalMinimalisticDetailed.docx', Enum::"Report Layout Subtype"::HeaderFooter, ExternalMinimalisticDetailedDescTxt);
+        SeedPartOrLogFailure(ExternalModernTxt, 'ReportParts/HeaderFooterDesign/ExternalModern.docx', Enum::"Report Layout Subtype"::HeaderFooter, ExternalModernDescTxt);
+        SeedPartOrLogFailure(ExternalModernLogoTxt, 'ReportParts/HeaderFooterDesign/ExternalModernLogo.docx', Enum::"Report Layout Subtype"::HeaderFooter, ExternalModernLogoDescTxt);
 
-        SeedPart(InternalDefaultTxt, 'ReportParts/HeaderFooterDesign/InternalDefault.docx', Enum::"Report Layout Subtype"::HeaderFooter, InternalDefaultDescTxt);
-        SeedPart(InternalMinimalisticCenteredTxt, 'ReportParts/HeaderFooterDesign/InternalMinimalisticCentered.docx', Enum::"Report Layout Subtype"::HeaderFooter, InternalMinimalisticCenteredDescTxt);
-        SeedPart(InternalMinimalisticTxt, 'ReportParts/HeaderFooterDesign/InternalMinimalistic.docx', Enum::"Report Layout Subtype"::HeaderFooter, InternalMinimalisticDescTxt);
-        SeedPart(InternalModernTxt, 'ReportParts/HeaderFooterDesign/InternalModern.docx', Enum::"Report Layout Subtype"::HeaderFooter, InternalModernDescTxt);
-        SeedPart(InternalModernMaxiTxt, 'ReportParts/HeaderFooterDesign/InternalModernMaxi.docx', Enum::"Report Layout Subtype"::HeaderFooter, InternalModernMaxiDescTxt);
+        SeedPartOrLogFailure(InternalDefaultTxt, 'ReportParts/HeaderFooterDesign/InternalDefault.docx', Enum::"Report Layout Subtype"::HeaderFooter, InternalDefaultDescTxt);
+        SeedPartOrLogFailure(InternalMinimalisticCenteredTxt, 'ReportParts/HeaderFooterDesign/InternalMinimalisticCentered.docx', Enum::"Report Layout Subtype"::HeaderFooter, InternalMinimalisticCenteredDescTxt);
+        SeedPartOrLogFailure(InternalMinimalisticTxt, 'ReportParts/HeaderFooterDesign/InternalMinimalistic.docx', Enum::"Report Layout Subtype"::HeaderFooter, InternalMinimalisticDescTxt);
+        SeedPartOrLogFailure(InternalModernTxt, 'ReportParts/HeaderFooterDesign/InternalModern.docx', Enum::"Report Layout Subtype"::HeaderFooter, InternalModernDescTxt);
+        SeedPartOrLogFailure(InternalModernMaxiTxt, 'ReportParts/HeaderFooterDesign/InternalModernMaxi.docx', Enum::"Report Layout Subtype"::HeaderFooter, InternalModernMaxiDescTxt);
 
-        SeedPart(DefaultThemeTxt, 'ReportParts/ReportTheme/Default.dotx', Enum::"Report Layout Subtype"::Theme, DefaultThemeDescTxt);
-        SeedPart(CalmThemeTxt, 'ReportParts/ReportTheme/Calm.dotx', Enum::"Report Layout Subtype"::Theme, CalmThemeDescTxt);
-        SeedPart(PlayfulThemeTxt, 'ReportParts/ReportTheme/Playful.dotx', Enum::"Report Layout Subtype"::Theme, PlayfulThemeDescTxt);
+        SeedPartOrLogFailure(DefaultThemeTxt, 'ReportParts/ReportTheme/Default.dotx', Enum::"Report Layout Subtype"::Theme, DefaultThemeDescTxt);
+        SeedPartOrLogFailure(CalmThemeTxt, 'ReportParts/ReportTheme/Calm.dotx', Enum::"Report Layout Subtype"::Theme, CalmThemeDescTxt);
+        SeedPartOrLogFailure(PlayfulThemeTxt, 'ReportParts/ReportTheme/Playful.dotx', Enum::"Report Layout Subtype"::Theme, PlayfulThemeDescTxt);
     end;
 
+    internal procedure SeedPartOrLogFailure(PartName: Text[250]; ResourceFile: Text; Subtype: Enum "Report Layout Subtype"; Description: Text)
+    var
+        Dimensions: Dictionary of [Text, Text];
+    begin
+        if TrySeedPart(PartName, ResourceFile, Subtype, Description) then
+            exit;
+
+        Dimensions.Add('PartName', PartName);
+        Dimensions.Add('ResourceFile', ResourceFile);
+        Session.LogMessage('0000CR1', StrSubstNo(SeedPartFailedTelemetryTxt, PartName, GetLastErrorText()), Verbosity::Error,
+            DataClassification::SystemMetadata, TelemetryScope::ExtensionPublisher, Dimensions);
+    end;
+
+    [TryFunction]
+    local procedure TrySeedPart(PartName: Text[250]; ResourceFile: Text; Subtype: Enum "Report Layout Subtype"; Description: Text)
+    begin
+        SeedPart(PartName, ResourceFile, Subtype, Description);
+    end;
+
+    /// <summary>
+    /// Seeds or overwrites a single shipped part. Raises if the part's own layout file is missing or unreadable -
+    /// a build defect that can only happen in a broken package - rather than skipping it silently. Called directly
+    /// like this, the error is the caller's to handle; SeedDefaultParts goes through SeedPartOrLogFailure instead
+    /// so that one bad part cannot fail the whole seeding pass.
+    /// </summary>
     internal procedure SeedPart(PartName: Text[250]; ResourceFile: Text; Subtype: Enum "Report Layout Subtype"; Description: Text)
     var
         TenantReportLayout: Record "Tenant Report Layout";
@@ -162,6 +193,7 @@ codeunit 9667 "Composite Report Parts Mgt."
         ResourceNotReadableErr: Label 'The layout file for the report part %1 could not be read. The part was not seeded.', Comment = '%1 = the name of the shipped theme or header/footer part';
         ResourceNotReadableDetailTxt: Label 'Resource: %1. Platform error: %2', Locked = true;
         ResourceMissingDetailTxt: Label 'Resource: %1. The app does not carry this resource.', Locked = true;
+        SeedPartFailedTelemetryTxt: Label 'Failed to seed Composite Report Part %1: %2', Locked = true;
         ThemeMimeTypeTxt: Label 'reportlayout/dotx', Locked = true;
         HeaderFooterMimeTypeTxt: Label 'reportlayout/docx', Locked = true;
 }
