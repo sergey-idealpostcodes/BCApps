@@ -19,14 +19,15 @@ codeunit 9667 "Composite Report Parts Mgt."
     // Seeding runs from the OnAfterInitialization subscriber at company open for every user, so the write must
     // succeed regardless of the triggering user's own permissions.
     InherentPermissions = X;
-    Permissions = tabledata "Tenant Report Layout" = rid;
+    Permissions = tabledata "Tenant Report Layout" = rim;
 
     // Seeding is gated by a one-time upgrade tag (see "Upgrade Composite Report Parts"), so this only ever runs
     // once per database. Retiring a part here (removing its SeedPart call) leaves its row, and any
     // Report Layout List / Tenant Report Layout Cfg assignment referencing it, permanently orphaned on any
     // database that already seeded under an earlier version - this pass will never run again to clean it up.
-    // If a part is retired, add a dedicated upgrade step with its own new upgrade tag to remove that specific
-    // row and clear its assignments, rather than relying on this seeding pass.
+    // If a part is retired, add a dedicated upgrade step with its own new upgrade tag that flips that row's
+    // Layout Status to Retired and clears its assignments - Retired is a real lifecycle status the platform
+    // already supports on this field, so there is no need to delete the row.
     internal procedure SeedDefaultParts()
     begin
         SeedPart(ExternalDefaultTxt, 'ReportParts/HeaderFooterDesign/ExternalDefault.docx', Enum::"Report Layout Subtype"::HeaderFooter, ExternalDefaultDescTxt);
