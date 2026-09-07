@@ -1314,8 +1314,12 @@ codeunit 134619 "Composite Layout Tests"
         // enforcement - otherwise the seeding would "succeed" here regardless of where the elevation lives.
         Initialize();
 
-        // [GIVEN] One shipped part is missing.
+        // [GIVEN] One shipped part is missing. Asserted, so a RemoveShippedPart that quietly matched nothing cannot
+        // let the final assertion pass on a row that was already there.
         RemoveShippedPart('Internal Default');
+        Assert.IsFalse(
+            ShippedPartExists('Internal Default', Enum::"Report Layout Subtype"::HeaderFooter),
+            'The part should be missing before OnCompanyOpen.');
 
         // [GIVEN] The current user has Execute on every object but no table data permissions at all.
         PermissionsMock.Start();
@@ -1526,7 +1530,13 @@ codeunit 134619 "Composite Layout Tests"
     local procedure Initialize()
     var
         TenantReportLayoutCfg: Record "Tenant Report Layout Cfg";
+        PermissionsMock: Codeunit "Permissions Mock";
     begin
+        // "Permissions Mock" is SingleInstance, and a test that lowers permissions and then fails never reaches its
+        // own Stop(). This suite shares a company and is not rolled back between tests, so a leaked restriction
+        // would fail every test that ran after it, for reasons that look nothing like the cause. Reset it here.
+        PermissionsMock.Stop();
+
         LibraryVariableStorage.Clear();
         TestReportID := 50000;
         BodyReportID := Report::TestReportLayoutsReport;

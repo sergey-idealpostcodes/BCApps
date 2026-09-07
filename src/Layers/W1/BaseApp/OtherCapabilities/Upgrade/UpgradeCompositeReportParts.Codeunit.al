@@ -17,10 +17,12 @@ codeunit 104067 "Upgrade Composite Report Parts"
 {
     Subtype = Upgrade;
     Access = Internal;
-    // The OnAfterInitialization subscriber runs for every user at company open, so the codeunit must be executable
-    // without an assigned permission set carrying it. The actual table write is elevated on "Composite Report Parts
-    // Mgt." instead, since permission elevation applies to the object executing the operation, not its callers.
+    // The OnAfterInitialization subscriber runs for every user at company open, so this codeunit must be executable
+    // without a permission set or entitlement carrying it - hence inherent Execute here. The tabledata grant for the
+    // write itself lives on "Composite Report Parts Mgt.", the codeunit that actually performs it, since elevation
+    // applies to the object executing the operation and not to its callers.
     InherentEntitlements = X;
+    InherentPermissions = X;
 
     trigger OnUpgradePerDatabase()
     begin
