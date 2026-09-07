@@ -16,6 +16,10 @@ using System.Utilities;
 codeunit 9667 "Composite Report Parts Mgt."
 {
     Access = Internal;
+    // Seeding runs from the OnAfterInitialization subscriber at company open for every user, so the write must
+    // succeed regardless of the triggering user's own permissions.
+    InherentPermissions = X;
+    Permissions = tabledata "Tenant Report Layout" = rid;
 
     internal procedure SeedDefaultParts()
     begin
