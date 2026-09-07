@@ -28,7 +28,6 @@ codeunit 134619 "Composite Layout Tests"
         UnseedablePartTok: Label 'Test Unseedable Part', Locked = true;
         UnseedablePartDescTok: Label 'A part a test seeds from a layout file that is not in the app.', Locked = true;
         MissingResourceTok: Label 'ReportParts/HeaderFooterDesign/ThisResourceIsNotInTheApp.docx', Locked = true;
-        ShippedThemeResourceTok: Label 'ReportParts/ReportTheme/Default.dotx', Locked = true;
         ThemeMimeTypeTok: Label 'reportlayout/dotx', Locked = true;
         TestReportID: Integer;
         BodyReportID: Integer;
