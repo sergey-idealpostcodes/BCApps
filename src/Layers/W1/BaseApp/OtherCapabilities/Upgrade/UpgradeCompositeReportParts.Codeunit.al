@@ -18,11 +18,9 @@ codeunit 104067 "Upgrade Composite Report Parts"
     Subtype = Upgrade;
     Access = Internal;
     // The OnAfterInitialization subscriber runs for every user at company open, so the codeunit must be executable
-    // without an assigned permission set carrying it, and the seeding must succeed regardless of the triggering
-    // user's own permissions - hence the elevated tabledata permissions below.
+    // without an assigned permission set carrying it. The actual table write is elevated on "Composite Report Parts
+    // Mgt." instead, since permission elevation applies to the object executing the operation, not its callers.
     InherentEntitlements = X;
-    InherentPermissions = X;
-    Permissions = tabledata "Tenant Report Layout" = rid;
 
     trigger OnUpgradePerDatabase()
     begin
