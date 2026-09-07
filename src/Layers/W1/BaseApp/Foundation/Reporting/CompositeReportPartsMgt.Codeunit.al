@@ -10,8 +10,8 @@ using System.Utilities;
 
 /// <summary>
 /// Seeds the shipped Composite Layout theme and header/footer parts under Tenant Report Defaults on install and
-/// upgrade, stored under this app's own App ID, and removes the parts this version no longer ships. Every part is a
-/// resource of this app, so one that cannot be read or written is a build defect and is raised rather than skipped.
+/// upgrade, stored under this app's own App ID. Every part is a resource of this app, so one that cannot be read
+/// or written is a build defect and is raised rather than skipped.
 /// </summary>
 codeunit 9667 "Composite Report Parts Mgt."
 {
@@ -39,8 +39,6 @@ codeunit 9667 "Composite Report Parts Mgt."
         SeedPart(DefaultThemeTxt, 'ReportParts/ReportTheme/Default.dotx', Enum::"Report Layout Subtype"::Theme, DefaultThemeDescTxt);
         SeedPart(CalmThemeTxt, 'ReportParts/ReportTheme/Calm.dotx', Enum::"Report Layout Subtype"::Theme, CalmThemeDescTxt);
         SeedPart(PlayfulThemeTxt, 'ReportParts/ReportTheme/Playful.dotx', Enum::"Report Layout Subtype"::Theme, PlayfulThemeDescTxt);
-
-        PruneRetiredParts();
     end;
 
     internal procedure SeedPart(PartName: Text[250]; ResourceFile: Text; Subtype: Enum "Report Layout Subtype"; Description: Text)
@@ -49,6 +47,7 @@ codeunit 9667 "Composite Report Parts Mgt."
         CompositeLayoutLookupHelper: Codeunit "Composite Layout Lookup Helper";
         PartLayout: Codeunit "Temp Blob";
         LayoutInStream: InStream;
+        PartExists: Boolean;
     begin
         ClearLastError();
 
@@ -58,13 +57,16 @@ codeunit 9667 "Composite Report Parts Mgt."
         if not TryGetPartLayout(ResourceFile, PartLayout) then
             Error(PartResourceError(PartName, ResourceFile, StrSubstNo(ResourceNotReadableDetailTxt, ResourceFile, GetLastErrorText(true))));
 
-        RemovePart(PartName, GetShippedPartAppId());
-
-        TenantReportLayout.Init();
-        TenantReportLayout."Report ID" := CompositeLayoutLookupHelper.GetTenantReportDefaultsReportID();
-        TenantReportLayout.Name := PartName;
-        TenantReportLayout."App ID" := GetShippedPartAppId();
-        TenantReportLayout."Company Name" := '';
+        // Upsert rather than delete-then-insert: a retry after a partial failure (some parts already seeded before
+        // an earlier Error()) overwrites those rows in place instead of needing to clear them first.
+        PartExists := TenantReportLayout.Get(CompositeLayoutLookupHelper.GetTenantReportDefaultsReportID(), PartName, GetShippedPartAppId());
+        if not PartExists then begin
+            TenantReportLayout.Init();
+            TenantReportLayout."Report ID" := CompositeLayoutLookupHelper.GetTenantReportDefaultsReportID();
+            TenantReportLayout.Name := PartName;
+            TenantReportLayout."App ID" := GetShippedPartAppId();
+            TenantReportLayout."Company Name" := '';
+        end;
         TenantReportLayout."Layout Format" := TenantReportLayout."Layout Format"::Word;
         TenantReportLayout."Layout Subtype" := Subtype;
         TenantReportLayout.Description := CopyStr(Description, 1, MaxStrLen(TenantReportLayout.Description));
@@ -72,7 +74,10 @@ codeunit 9667 "Composite Report Parts Mgt."
         TenantReportLayout."MIME Type" := PartMimeType(Subtype);
         PartLayout.CreateInStream(LayoutInStream);
         TenantReportLayout.Layout.ImportStream(LayoutInStream, PartName);
-        TenantReportLayout.Insert(true);
+        if PartExists then
+            TenantReportLayout.Modify(true)
+        else
+            TenantReportLayout.Insert(true);
     end;
 
     [TryFunction]
@@ -102,75 +107,12 @@ codeunit 9667 "Composite Report Parts Mgt."
         LayoutErrorInfo.CustomDimensions := Dimensions;
     end;
 
-    local procedure PruneRetiredParts()
-    var
-        TenantReportLayout: Record "Tenant Report Layout";
-        TempPartsToDelete: Record "Tenant Report Layout" temporary;
-        CompositeLayoutLookupHelper: Codeunit "Composite Layout Lookup Helper";
-    begin
-        TenantReportLayout.SetRange("Report ID", CompositeLayoutLookupHelper.GetTenantReportDefaultsReportID());
-        TenantReportLayout.SetRange("App ID", GetShippedPartAppId());
-        TenantReportLayout.SetLoadFields(Name, "Layout Subtype");
-        if TenantReportLayout.FindSet() then
-            repeat
-                if not IsShippedPart(TenantReportLayout.Name) then begin
-                    ClearAssignments(TenantReportLayout.Name, TenantReportLayout."Layout Subtype");
-                    TempPartsToDelete.Init();
-                    TempPartsToDelete."Report ID" := TenantReportLayout."Report ID";
-                    TempPartsToDelete.Name := TenantReportLayout.Name;
-                    TempPartsToDelete.Insert();
-                end;
-            until TenantReportLayout.Next() = 0;
-
-        if TempPartsToDelete.FindSet() then
-            repeat
-                RemovePart(TempPartsToDelete.Name, GetShippedPartAppId());
-            until TempPartsToDelete.Next() = 0;
-    end;
-
-    local procedure ClearAssignments(PartName: Text[250]; Subtype: Enum "Report Layout Subtype")
-    var
-        ReportLayoutList: Record "Report Layout List";
-        CompositeLayoutLookupHelper: Codeunit "Composite Layout Lookup Helper";
-    begin
-        // No Application ID filter: Report Layout List surfaces tenant layouts with a blank Application ID, and
-        // assignments are encoded from that view, so filtering on the shipped App ID would miss the rows that
-        // actually reference the part. Clear the assignments of every matching row instead.
-        ReportLayoutList.SetRange("Report ID", CompositeLayoutLookupHelper.GetTenantReportDefaultsReportID());
-        ReportLayoutList.SetRange(Name, CopyStr(PartName, 1, MaxStrLen(ReportLayoutList.Name)));
-        ReportLayoutList.SetRange("Layout Subtype", Subtype);
-        ReportLayoutList.SetLoadFields("Application ID", Name, "Layout Subtype");
-        if ReportLayoutList.FindSet() then
-            repeat
-                CompositeLayoutLookupHelper.ClearPartAssignments(ReportLayoutList);
-            until ReportLayoutList.Next() = 0;
-    end;
-
     internal procedure GetShippedPartAppId() AppId: Guid
     var
         CurrentModuleInfo: ModuleInfo;
     begin
         NavApp.GetCurrentModuleInfo(CurrentModuleInfo);
         AppId := CurrentModuleInfo.Id;
-    end;
-
-    internal procedure IsShippedPart(PartName: Text): Boolean
-    begin
-        exit(
-            PartName in
-            [ExternalDefaultTxt, ExternalDefaultDetailedTxt, ExternalMinimalisticTxt, ExternalMinimalisticDetailedTxt,
-             ExternalModernTxt, ExternalModernLogoTxt,
-             InternalDefaultTxt, InternalMinimalisticCenteredTxt, InternalMinimalisticTxt, InternalModernTxt, InternalModernMaxiTxt,
-             DefaultThemeTxt, CalmThemeTxt, PlayfulThemeTxt]);
-    end;
-
-    local procedure RemovePart(PartName: Text[250]; AppId: Guid)
-    var
-        TenantReportLayout: Record "Tenant Report Layout";
-        CompositeLayoutLookupHelper: Codeunit "Composite Layout Lookup Helper";
-    begin
-        if TenantReportLayout.Get(CompositeLayoutLookupHelper.GetTenantReportDefaultsReportID(), PartName, AppId) then
-            TenantReportLayout.Delete(true);
     end;
 
     local procedure PartMimeType(Subtype: Enum "Report Layout Subtype"): Text[255]
