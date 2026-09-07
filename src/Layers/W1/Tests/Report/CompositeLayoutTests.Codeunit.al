@@ -1344,6 +1344,42 @@ codeunit 134619 "Composite Layout Tests"
         ClearCompositeReportPartsUpgradeTag();
     end;
 
+    [Test]
+    [TestPermissions(TestPermissions::Restrictive)]
+    [Scope('OnPrem')]
+    procedure OnCompanyOpenSeedsDefaultPartsUnderMinimalPermissions()
+    var
+        PermissionsMock: Codeunit "Permissions Mock";
+    begin
+        // [SCENARIO] Seeding on company open succeeds for a user with no "Tenant Report Layout" permissions of
+        // their own - the write is elevated on "Composite Report Parts Mgt.", the codeunit that actually performs
+        // it, not on the calling upgrade codeunit. This codeunit runs with TestPermissions = Disabled by default,
+        // which bypasses permission checks entirely, so this test opts back into Restrictive to actually exercise
+        // enforcement - otherwise the seeding would "succeed" here regardless of where the elevation lives.
+        Initialize();
+
+        // [GIVEN] One shipped part is missing.
+        RemoveShippedPart('Internal Default');
+
+        // [GIVEN] The current user has Execute on every object but no table data permissions at all.
+        PermissionsMock.Start();
+        PermissionsMock.Set('All Objects');
+
+        // [WHEN] Simulating OnCompanyOpen (same logic as the event handler).
+        SimulateCompanyOpenSeeding();
+
+        // Restore full permissions before reading back and cleaning up.
+        PermissionsMock.Stop();
+
+        // [THEN] The missing part is seeded despite the caller having no direct Tenant Report Layout permissions.
+        Assert.IsTrue(
+            ShippedPartExists('Internal Default', Enum::"Report Layout Subtype"::HeaderFooter),
+            'OnCompanyOpen should seed the missing shipped part even under minimal permissions.');
+
+        // Cleared again so the suite does not hand the tag on to whatever runs next in this database.
+        ClearCompositeReportPartsUpgradeTag();
+    end;
+
     /// <summary>
     /// Mirrors the company-open fallback in codeunit "Upgrade Composite Report Parts": the database upgrade tag is the
     /// guard, and seeding goes through SeedShippedParts so the tag is recorded and the seeding stays exactly-once.
