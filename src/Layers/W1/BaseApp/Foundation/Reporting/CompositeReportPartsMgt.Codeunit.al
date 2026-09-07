@@ -63,9 +63,12 @@ codeunit 9667 "Composite Report Parts Mgt."
         if TrySeedPart(PartName, ResourceFile, Subtype, Description) then
             exit;
 
+        // The message stays static: Session.LogMessage ships it verbatim regardless of DataClassification, and
+        // GetLastErrorText can carry customer content. Everything variable goes into the dimensions instead.
         Dimensions.Add('PartName', PartName);
         Dimensions.Add('ResourceFile', ResourceFile);
-        Session.LogMessage('0000CR1', StrSubstNo(SeedPartFailedTelemetryTxt, PartName, GetLastErrorText()), Verbosity::Error,
+        Dimensions.Add('ErrorText', GetLastErrorText());
+        Session.LogMessage('0000CR1', SeedPartFailedTelemetryTxt, Verbosity::Error,
             DataClassification::SystemMetadata, TelemetryScope::ExtensionPublisher, Dimensions);
     end;
 
@@ -195,7 +198,7 @@ codeunit 9667 "Composite Report Parts Mgt."
         ResourceNotReadableErr: Label 'The layout file for the report part %1 could not be read. The part was not seeded.', Comment = '%1 = the name of the shipped theme or header/footer part';
         ResourceNotReadableDetailTxt: Label 'Resource: %1. Platform error: %2', Locked = true;
         ResourceMissingDetailTxt: Label 'Resource: %1. The app does not carry this resource.', Locked = true;
-        SeedPartFailedTelemetryTxt: Label 'Failed to seed Composite Report Part %1: %2', Locked = true;
+        SeedPartFailedTelemetryTxt: Label 'Failed to seed a shipped Composite Report Part.', Locked = true;
         ThemeMimeTypeTxt: Label 'reportlayout/dotx', Locked = true;
         HeaderFooterMimeTypeTxt: Label 'reportlayout/docx', Locked = true;
 }
