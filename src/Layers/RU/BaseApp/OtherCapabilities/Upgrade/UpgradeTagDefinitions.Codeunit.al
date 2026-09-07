@@ -219,6 +219,7 @@ codeunit 9998 "Upgrade Tag Definitions"
         PerDatabaseUpgradeTags.Add(GetBCUserGroupUpgradeTag());
         PerDatabaseUpgradeTags.Add(GetRenderWordReportsInPlatformFeatureKeyUpgradeTag());
         PerDatabaseUpgradeTags.Add(GetRegisterBankAccRecCopilotCapabilityUpgradeTag());
+        PerDatabaseUpgradeTags.Add(GetCompositeReportPartsUpgradeTag());
     end;
 
     [EventSubscriber(ObjectType::Codeunit, Codeunit::"API Data Upgrade", 'OnGetAPIUpgradeTags', '', false, false)]
@@ -1310,5 +1311,10 @@ codeunit 9998 "Upgrade Tag Definitions"
     begin
         // Upgrade legacy Job-related warehouse records from (Database::Job, 0) to (Database::"Job Planning Line", Order)
         exit('MS-625654-WarehouseActivitySourceTypeForJobPlanningLineUpgradeTag-20260518');
+    end;
+
+    internal procedure GetCompositeReportPartsUpgradeTag(): Code[250]
+    begin
+        exit('MS-647452-CompositeReportPartsUpgradeTag-20260820');
     end;
 }
