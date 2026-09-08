@@ -423,7 +423,8 @@ codeunit 134619 "Composite Layout Tests"
             'The theme part should be gone before seeding, or the test proves nothing.');
 
         // [WHEN] Seeding the shipped parts, as install and upgrade do.
-        CompositeReportPartsMgt.SeedDefaultParts();
+        // [THEN] It reports a full pass, which is what lets the caller record the upgrade tag.
+        Assert.IsTrue(CompositeReportPartsMgt.SeedDefaultParts(), 'Seeding every shipped part should report a full pass.');
 
         // [THEN] A shipped header/footer part is in the pool under Tenant Report Defaults, with the header/footer subtype.
         Assert.IsTrue(
@@ -634,7 +635,10 @@ codeunit 134619 "Composite Layout Tests"
 
         // [WHEN] Seeding a part whose layout file is not a resource of the app, through the failure-absorbing entry
         // point. Reaching the assertions below already proves it did not raise.
-        CompositeReportPartsMgt.SeedPartOrLogFailure(PartName, MissingResourceTok, Enum::"Report Layout Subtype"::HeaderFooter, UnseedablePartDescTok);
+        // [THEN] It reports the part as not seeded, so the caller does not record the pass as complete.
+        Assert.IsFalse(
+            CompositeReportPartsMgt.SeedPartOrLogFailure(PartName, MissingResourceTok, Enum::"Report Layout Subtype"::HeaderFooter, UnseedablePartDescTok),
+            'A part whose resource is missing should be reported as not seeded.');
 
         // [THEN] Nothing was written for the failed part - it is logged, not silently faked as seeded.
         Assert.AreEqual(0, ShippedPartCount(PartName), 'A part that could not be read should leave no row in the pool.');
