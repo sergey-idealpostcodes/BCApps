@@ -10,9 +10,9 @@ using System.Utilities;
 
 /// <summary>
 /// Seeds the shipped Composite Layout theme and header/footer parts under Tenant Report Defaults on install and
-/// upgrade, stored under this app's own App ID. Every part is a resource of this app, so one that cannot be read
-/// or written is a build defect - SeedPart raises for it, but SeedDefaultParts logs it and keeps seeding the rest
-/// rather than failing the whole pass on one bad part.
+/// upgrade, stored under this app's own App ID. Every part is a resource of this app, so one whose layout file
+/// cannot be read is a build defect - SeedPart raises for it, but SeedDefaultParts logs it and keeps seeding the
+/// rest rather than failing the whole pass on one bad part.
 /// </summary>
 codeunit 9667 "Composite Report Parts Mgt."
 {
@@ -58,24 +58,28 @@ codeunit 9667 "Composite Report Parts Mgt."
 
     internal procedure SeedPartOrLogFailure(PartName: Text[250]; ResourceFile: Text; Subtype: Enum "Report Layout Subtype"; Description: Text)
     var
+        PartLayout: Codeunit "Temp Blob";
         Dimensions: Dictionary of [Text, Text];
     begin
-        if TrySeedPart(PartName, ResourceFile, Subtype, Description) then
+        // Only reading the resource is guarded by a try function; the database write is not. A try function call
+        // may not write to the database on-premises (DisableWriteInsideTryFunctions defaults to true), and this runs
+        // at company open and in the per-database upgrade - wrapping the write too failed company open on every fresh
+        // database. A write that fails is a platform or tenant condition rather than a bad part, and is left to raise.
+        if TryReadPartLayout(PartName, ResourceFile, PartLayout) then begin
+            WritePart(PartName, PartLayout, Subtype, Description);
             exit;
+        end;
 
         // The message stays static: Session.LogMessage ships it verbatim regardless of DataClassification, and
         // GetLastErrorText can carry customer content. Everything variable goes into the dimensions instead.
+        // The error text is read with ExcludeCustomerContent set, so that what lands in the dimensions stays
+        // within the SystemMetadata classification this event is logged under - the failing part is one of our
+        // own resources, so the part name and resource file are all the diagnosis needs anyway.
         Dimensions.Add('PartName', PartName);
         Dimensions.Add('ResourceFile', ResourceFile);
-        Dimensions.Add('ErrorText', GetLastErrorText());
+        Dimensions.Add('ErrorText', GetLastErrorText(true));
         Session.LogMessage('0000CR1', SeedPartFailedTelemetryTxt, Verbosity::Error,
             DataClassification::SystemMetadata, TelemetryScope::ExtensionPublisher, Dimensions);
-    end;
-
-    [TryFunction]
-    local procedure TrySeedPart(PartName: Text[250]; ResourceFile: Text; Subtype: Enum "Report Layout Subtype"; Description: Text)
-    begin
-        SeedPart(PartName, ResourceFile, Subtype, Description);
     end;
 
     /// <summary>
@@ -86,11 +90,20 @@ codeunit 9667 "Composite Report Parts Mgt."
     /// </summary>
     internal procedure SeedPart(PartName: Text[250]; ResourceFile: Text; Subtype: Enum "Report Layout Subtype"; Description: Text)
     var
-        TenantReportLayout: Record "Tenant Report Layout";
-        CompositeLayoutLookupHelper: Codeunit "Composite Layout Lookup Helper";
         PartLayout: Codeunit "Temp Blob";
-        LayoutInStream: InStream;
-        PartExists: Boolean;
+    begin
+        ReadPartLayout(PartName, ResourceFile, PartLayout);
+        WritePart(PartName, PartLayout, Subtype, Description);
+    end;
+
+    [TryFunction]
+    local procedure TryReadPartLayout(PartName: Text[250]; ResourceFile: Text; var PartLayout: Codeunit "Temp Blob")
+    begin
+        ReadPartLayout(PartName, ResourceFile, PartLayout);
+    end;
+
+    // Read-only by design: this is what runs inside TryReadPartLayout, so it must not touch the database.
+    local procedure ReadPartLayout(PartName: Text[250]; ResourceFile: Text; var PartLayout: Codeunit "Temp Blob")
     begin
         ClearLastError();
 
@@ -99,7 +112,15 @@ codeunit 9667 "Composite Report Parts Mgt."
 
         if not TryGetPartLayout(ResourceFile, PartLayout) then
             Error(PartResourceError(PartName, ResourceFile, StrSubstNo(ResourceNotReadableDetailTxt, ResourceFile, GetLastErrorText(true))));
+    end;
 
+    local procedure WritePart(PartName: Text[250]; var PartLayout: Codeunit "Temp Blob"; Subtype: Enum "Report Layout Subtype"; Description: Text)
+    var
+        TenantReportLayout: Record "Tenant Report Layout";
+        CompositeLayoutLookupHelper: Codeunit "Composite Layout Lookup Helper";
+        LayoutInStream: InStream;
+        PartExists: Boolean;
+    begin
         // Upsert rather than delete-then-insert: a retry after a partial failure (some parts already seeded before
         // an earlier Error()) overwrites those rows in place instead of needing to clear them first.
         PartExists := TenantReportLayout.Get(CompositeLayoutLookupHelper.GetTenantReportDefaultsReportID(), PartName, GetShippedPartAppId());
