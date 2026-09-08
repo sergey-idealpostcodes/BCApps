@@ -51,11 +51,15 @@ codeunit 104067 "Upgrade Composite Report Parts"
         UpgradeTagDefinitions: Codeunit "Upgrade Tag Definitions";
     begin
         // Cheap persisted guard shared by every entry point (install, upgrade and company open): a database that has
-        // been seeded carries the upgrade tag and exits on this single read, keeping the seeding exactly-once.
+        // been fully seeded carries the upgrade tag and exits on this single read, keeping the seeding exactly-once.
         if UpgradeTag.HasDatabaseUpgradeTag(UpgradeTagDefinitions.GetCompositeReportPartsUpgradeTag()) then
             exit;
 
-        CompositeReportPartsMgt.SeedDefaultParts();
-        UpgradeTag.SetDatabaseUpgradeTag(UpgradeTagDefinitions.GetCompositeReportPartsUpgradeTag());
+        // The tag is recorded only when every part was seeded. A part whose resource could not be read is a broken
+        // package; leaving the tag off keeps the retry path open, so the next upgrade or company open on a fixed
+        // package seeds it. Until then the pass reruns on each company open - the parts that did seed are upserted in
+        // place, so the rerun is idempotent, and the cost is bounded to a build defect CI is meant to catch first.
+        if CompositeReportPartsMgt.SeedDefaultParts() then
+            UpgradeTag.SetDatabaseUpgradeTag(UpgradeTagDefinitions.GetCompositeReportPartsUpgradeTag());
     end;
 }
