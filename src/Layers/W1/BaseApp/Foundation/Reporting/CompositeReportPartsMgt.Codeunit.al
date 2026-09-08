@@ -36,27 +36,33 @@ codeunit 9667 "Composite Report Parts Mgt."
     // upgrade trigger and from company open for every user, so one part with a bad resource must not fail the
     // whole upgrade tag (and whatever else shares its upgrade phase) or block company open for every other
     // tenant. A failure is logged to telemetry instead, and the remaining parts still get seeded.
-    internal procedure SeedDefaultParts()
+    //
+    // Returns whether every part was seeded. The caller uses it to decide whether the pass is complete - a partial
+    // pass must not be recorded as done, or a part that failed on a broken package would never be retried once a
+    // fixed package ships. Every call below runs regardless of the result of the ones before it.
+    internal procedure SeedDefaultParts() AllSeeded: Boolean
     begin
-        SeedPartOrLogFailure(ExternalDefaultTxt, 'ReportParts/HeaderFooterDesign/ExternalDefault.docx', Enum::"Report Layout Subtype"::HeaderFooter, ExternalDefaultDescTxt);
-        SeedPartOrLogFailure(ExternalDefaultDetailedTxt, 'ReportParts/HeaderFooterDesign/ExternalDefaultDetailed.docx', Enum::"Report Layout Subtype"::HeaderFooter, ExternalDefaultDetailedDescTxt);
-        SeedPartOrLogFailure(ExternalMinimalisticTxt, 'ReportParts/HeaderFooterDesign/ExternalMinimalistic.docx', Enum::"Report Layout Subtype"::HeaderFooter, ExternalMinimalisticDescTxt);
-        SeedPartOrLogFailure(ExternalMinimalisticDetailedTxt, 'ReportParts/HeaderFooterDesign/ExternalMinimalisticDetailed.docx', Enum::"Report Layout Subtype"::HeaderFooter, ExternalMinimalisticDetailedDescTxt);
-        SeedPartOrLogFailure(ExternalModernTxt, 'ReportParts/HeaderFooterDesign/ExternalModern.docx', Enum::"Report Layout Subtype"::HeaderFooter, ExternalModernDescTxt);
-        SeedPartOrLogFailure(ExternalModernLogoTxt, 'ReportParts/HeaderFooterDesign/ExternalModernLogo.docx', Enum::"Report Layout Subtype"::HeaderFooter, ExternalModernLogoDescTxt);
+        AllSeeded := true;
+        AllSeeded := SeedPartOrLogFailure(ExternalDefaultTxt, 'ReportParts/HeaderFooterDesign/ExternalDefault.docx', Enum::"Report Layout Subtype"::HeaderFooter, ExternalDefaultDescTxt) and AllSeeded;
+        AllSeeded := SeedPartOrLogFailure(ExternalDefaultDetailedTxt, 'ReportParts/HeaderFooterDesign/ExternalDefaultDetailed.docx', Enum::"Report Layout Subtype"::HeaderFooter, ExternalDefaultDetailedDescTxt) and AllSeeded;
+        AllSeeded := SeedPartOrLogFailure(ExternalMinimalisticTxt, 'ReportParts/HeaderFooterDesign/ExternalMinimalistic.docx', Enum::"Report Layout Subtype"::HeaderFooter, ExternalMinimalisticDescTxt) and AllSeeded;
+        AllSeeded := SeedPartOrLogFailure(ExternalMinimalisticDetailedTxt, 'ReportParts/HeaderFooterDesign/ExternalMinimalisticDetailed.docx', Enum::"Report Layout Subtype"::HeaderFooter, ExternalMinimalisticDetailedDescTxt) and AllSeeded;
+        AllSeeded := SeedPartOrLogFailure(ExternalModernTxt, 'ReportParts/HeaderFooterDesign/ExternalModern.docx', Enum::"Report Layout Subtype"::HeaderFooter, ExternalModernDescTxt) and AllSeeded;
+        AllSeeded := SeedPartOrLogFailure(ExternalModernLogoTxt, 'ReportParts/HeaderFooterDesign/ExternalModernLogo.docx', Enum::"Report Layout Subtype"::HeaderFooter, ExternalModernLogoDescTxt) and AllSeeded;
 
-        SeedPartOrLogFailure(InternalDefaultTxt, 'ReportParts/HeaderFooterDesign/InternalDefault.docx', Enum::"Report Layout Subtype"::HeaderFooter, InternalDefaultDescTxt);
-        SeedPartOrLogFailure(InternalMinimalisticCenteredTxt, 'ReportParts/HeaderFooterDesign/InternalMinimalisticCentered.docx', Enum::"Report Layout Subtype"::HeaderFooter, InternalMinimalisticCenteredDescTxt);
-        SeedPartOrLogFailure(InternalMinimalisticTxt, 'ReportParts/HeaderFooterDesign/InternalMinimalistic.docx', Enum::"Report Layout Subtype"::HeaderFooter, InternalMinimalisticDescTxt);
-        SeedPartOrLogFailure(InternalModernTxt, 'ReportParts/HeaderFooterDesign/InternalModern.docx', Enum::"Report Layout Subtype"::HeaderFooter, InternalModernDescTxt);
-        SeedPartOrLogFailure(InternalModernMaxiTxt, 'ReportParts/HeaderFooterDesign/InternalModernMaxi.docx', Enum::"Report Layout Subtype"::HeaderFooter, InternalModernMaxiDescTxt);
+        AllSeeded := SeedPartOrLogFailure(InternalDefaultTxt, 'ReportParts/HeaderFooterDesign/InternalDefault.docx', Enum::"Report Layout Subtype"::HeaderFooter, InternalDefaultDescTxt) and AllSeeded;
+        AllSeeded := SeedPartOrLogFailure(InternalMinimalisticCenteredTxt, 'ReportParts/HeaderFooterDesign/InternalMinimalisticCentered.docx', Enum::"Report Layout Subtype"::HeaderFooter, InternalMinimalisticCenteredDescTxt) and AllSeeded;
+        AllSeeded := SeedPartOrLogFailure(InternalMinimalisticTxt, 'ReportParts/HeaderFooterDesign/InternalMinimalistic.docx', Enum::"Report Layout Subtype"::HeaderFooter, InternalMinimalisticDescTxt) and AllSeeded;
+        AllSeeded := SeedPartOrLogFailure(InternalModernTxt, 'ReportParts/HeaderFooterDesign/InternalModern.docx', Enum::"Report Layout Subtype"::HeaderFooter, InternalModernDescTxt) and AllSeeded;
+        AllSeeded := SeedPartOrLogFailure(InternalModernMaxiTxt, 'ReportParts/HeaderFooterDesign/InternalModernMaxi.docx', Enum::"Report Layout Subtype"::HeaderFooter, InternalModernMaxiDescTxt) and AllSeeded;
 
-        SeedPartOrLogFailure(DefaultThemeTxt, 'ReportParts/ReportTheme/Default.dotx', Enum::"Report Layout Subtype"::Theme, DefaultThemeDescTxt);
-        SeedPartOrLogFailure(CalmThemeTxt, 'ReportParts/ReportTheme/Calm.dotx', Enum::"Report Layout Subtype"::Theme, CalmThemeDescTxt);
-        SeedPartOrLogFailure(PlayfulThemeTxt, 'ReportParts/ReportTheme/Playful.dotx', Enum::"Report Layout Subtype"::Theme, PlayfulThemeDescTxt);
+        AllSeeded := SeedPartOrLogFailure(DefaultThemeTxt, 'ReportParts/ReportTheme/Default.dotx', Enum::"Report Layout Subtype"::Theme, DefaultThemeDescTxt) and AllSeeded;
+        AllSeeded := SeedPartOrLogFailure(CalmThemeTxt, 'ReportParts/ReportTheme/Calm.dotx', Enum::"Report Layout Subtype"::Theme, CalmThemeDescTxt) and AllSeeded;
+        AllSeeded := SeedPartOrLogFailure(PlayfulThemeTxt, 'ReportParts/ReportTheme/Playful.dotx', Enum::"Report Layout Subtype"::Theme, PlayfulThemeDescTxt) and AllSeeded;
     end;
 
-    internal procedure SeedPartOrLogFailure(PartName: Text[250]; ResourceFile: Text; Subtype: Enum "Report Layout Subtype"; Description: Text)
+    // Returns whether the part was seeded. False means its resource could not be read and the failure was logged.
+    internal procedure SeedPartOrLogFailure(PartName: Text[250]; ResourceFile: Text; Subtype: Enum "Report Layout Subtype"; Description: Text) Seeded: Boolean
     var
         PartLayout: Codeunit "Temp Blob";
         Dimensions: Dictionary of [Text, Text];
@@ -67,7 +73,7 @@ codeunit 9667 "Composite Report Parts Mgt."
         // database. A write that fails is a platform or tenant condition rather than a bad part, and is left to raise.
         if TryReadPartLayout(PartName, ResourceFile, PartLayout) then begin
             WritePart(PartName, PartLayout, Subtype, Description);
-            exit;
+            exit(true);
         end;
 
         // The message stays static: Session.LogMessage ships it verbatim regardless of DataClassification, and
